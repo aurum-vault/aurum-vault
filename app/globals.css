@@ -1,26 +1,119 @@
 @import "tailwindcss";
+@plugin "daisyui" {
+  themes: aurum --default;
+}
 
+[data-theme="aurum"] {
+  color-scheme: light;
+  --color-primary: oklch(41% 0.13 62);
+  --color-primary-content: oklch(100% 0 0);
+  --color-secondary: oklch(65% 0.04 226);
+  --color-secondary-content: oklch(100% 0 0);
+  --color-accent: oklch(54% 0.13 72);
+  --color-accent-content: oklch(100% 0 0);
+  --color-neutral: oklch(12% 0.03 48);
+  --color-neutral-content: oklch(100% 0 0);
+  --color-base-100: oklch(97% 0.015 80);
+  --color-base-200: oklch(94% 0.025 75);
+  --color-base-300: oklch(90% 0.04 70);
+  --color-base-content: oklch(24% 0.06 55);
+  --color-info: oklch(55% 0.12 220);
+  --color-info-content: oklch(100% 0 0);
+  --color-success: oklch(43% 0.12 147);
+  --color-success-content: oklch(100% 0 0);
+  --color-warning: oklch(41% 0.12 62);
+  --color-warning-content: oklch(100% 0 0);
+  --color-error: oklch(38% 0.13 27);
+  --color-error-content: oklch(100% 0 0);
+  --rounded-box: 0.75rem;
+  --rounded-btn: 0.5rem;
+  --rounded-badge: 1.25rem;
+  --border-btn: 1.5px;
+  --tab-border: 2px;
+}
+
+/* Aurum design tokens */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --gold: #8a5e0a;
+  --gold-accent: #b8860b;
+  --gold-light: rgba(138, 94, 10, 0.08);
+  --platinum: #8e9bae;
+  --diamond: #e8f4fd;
+  --charcoal: #1a1200;
+  --body-color: #3d2c0e;
+  --sec: #7a6040;
+  --muted: #9a7a50;
+  --green: #1a6b3a;
+  --amber: #8a5500;
+  --red: #9b2020;
+  --border-color: rgba(138, 94, 10, 0.15);
+  --border-active: rgba(138, 94, 10, 0.4);
+  --sh-s: 0 2px 8px rgba(138, 94, 10, 0.08);
+  --sh-m: 0 8px 32px rgba(138, 94, 10, 0.12);
+  --sh-l: 0 24px 64px rgba(60, 30, 0, 0.18);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* Global typography */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "DM Sans", -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: 0.3px;
+}
+
+h1, h2, h3, h4, h5 {
+  font-family: "Cormorant Garamond", Georgia, serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgba(138, 94, 10, 0.2); border-radius: 5px; }
+
+/* Animations */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes floaty {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(20px, -20px); }
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes gemPulse {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 12px rgba(212, 175, 55, 0.5)); }
+  50% { transform: scale(1.08); filter: drop-shadow(0 0 24px rgba(212, 175, 55, 0.9)); }
+}
+
+.animate-fadeUp { animation: fadeUp 0.4s ease; }
+.animate-floaty { animation: floaty 7s ease-in-out infinite; }
+.animate-gemPulse { animation: gemPulse 3s ease-in-out infinite; }
+
+/* Gold gradient button override */
+.btn-gold {
+  background: linear-gradient(135deg, #7a4e08, #b8860b);
+  color: white;
+  border: none;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-weight: 600;
+  font-size: 14px;
+}
+.btn-gold:hover { filter: brightness(1.08); box-shadow: var(--sh-m); }
+
+/* Label utility */
+.label-caps {
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* Asset image shimmer */
+.asset-img-shimmer {
+  background: linear-gradient(140deg, #fbf3e0, #f3e2bc 55%, #fbf3e0);
+  background-size: 200% 100%;
+  animation: shimmer 7s linear infinite;
 }
