@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { MobileNav } from "@/components/layout/MobileNav";
@@ -37,20 +37,18 @@ const TITLES: Record<string, string> = {
   "/admin/settings": "Settings",
 };
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function AdminLayout({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
-  const { setRole, toast } = useApp();
+  const { logout, username, roles } = useAuth();
+  const displayRole = roles.includes("admin") ? "Administrator" : "Appraiser";
+  const initials = username.slice(0, 2).toUpperCase() || "AU";
 
   const activeView = NAV_ITEMS.find((n) => pathname === n.view || (n.view !== "/admin" && pathname.startsWith(n.view)))?.view || "/admin";
   const title = TITLES[pathname] || "Admin";
 
-  const signOut = () => {
-    setRole(null);
-    toast("Signed out", "default");
-    router.push("/");
-  };
+  const signOut = () => logout();
 
   return (
     <div className="flex min-h-screen" style={{ background: "#fbf7f0" }}>
@@ -61,9 +59,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         navItems={NAV_ITEMS}
         activeView={activeView}
         onNav={(view) => router.push(view)}
-        userName="Valli Kumar"
-        userRole="Administrator"
-        avatarInitials="VK"
+        userName={username}
+        userRole={displayRole}
+        avatarInitials={initials}
       />
       <div className="flex-1 flex flex-col lg:ml-[240px]">
         <TopBar title={title} onMenuClick={() => setSidebarOpen(true)} onSignOut={signOut} />

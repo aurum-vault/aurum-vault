@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, Suspense } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useApp } from "@/context/AppContext";
 import { Button } from "@/components/ui/Button";
@@ -8,15 +8,15 @@ import { Card } from "@/components/ui/Card";
 import { StepIndicator } from "@/components/ui/StepIndicator";
 import { RadioCardGroup } from "@/components/ui/RadioCard";
 import { FormField, Input, Select, Textarea } from "@/components/ui/FormField";
-import { Chips, MultiChips } from "@/components/ui/Chips";
-import { Badge, TicketStatusBadge } from "@/components/ui/Badge";
+import { Chips } from "@/components/ui/Chips";
+import { TicketStatusBadge } from "@/components/ui/Badge";
 import { UploadZone, ImageThumbs } from "@/components/ui/UploadZone";
-import { fmtINR, calcMarketValue, generateTicketId } from "@/lib/utils";
+import { fmtINR, calcMarketValue } from "@/lib/utils";
 import { SVC_TYPES, REFURB_RATECARD, LOAN_TENURES, LOAN_LTV, VISIT_TYPES, TIME_SLOTS } from "@/lib/data";
 import type { ServiceType } from "@/lib/types";
 
 function ServicesContent() {
-  const { db, setDb, toast } = useApp();
+  const { db, toast, apiCreateTicket } = useApp();
   const router = useRouter();
   const params = useSearchParams();
 
@@ -35,6 +35,7 @@ function ServicesContent() {
   const [repairIssue, setRepairIssue] = useState("");
   const [repairImages, setRepairImages] = useState<string[]>([]);
   const [createdId, setCreatedId] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const startRequest = (svc?: ServiceType) => {
     setService(svc || null);
@@ -42,30 +43,37 @@ function ServicesContent() {
     setMode("request");
   };
 
-  const submit = () => {
-    const id = generateTicketId(db.tickets.length);
-    const extra: Record<string, unknown> = {};
-    if (service === "repair") { extra.issue = repairIssue; extra.images = repairImages; }
-    if (service === "refurbishment") { extra.refurb = refurbItems; extra.rateTotal = refurbItems.reduce((s, n) => s + (REFURB_RATECARD.find((x) => x.name === n)?.price ?? 0), 0); }
-    if (service === "gold_loan") { extra.loanAmt = loanAmt; extra.tenure = loanTenure; }
+  const submit = async () => {
+    if (!service || !assetId) return;
+    setSaving(true);
+    try {
+      const extra: Record<string, unknown> = {};
+      if (service === "repair") { extra.issue = repairIssue; extra.images = repairImages; }
+      if (service === "refurbishment") {
+        extra.refurb = refurbItems;
+        extra.rateTotal = refurbItems.reduce((s, n) => s + (REFURB_RATECARD.find((x) => x.name === n)?.price ?? 0), 0);
+      }
+      if (service === "gold_loan") { extra.loanAmt = loanAmt; extra.tenure = loanTenure; }
 
-    setDb((prev) => ({
-      ...prev,
-      tickets: [...prev.tickets, {
-        ticket_id: id, customer_id: prev.customer.customer_id,
-        asset_id: assetId, service_type: service!,
-        status: "submitted", priority: "medium", assigned_to: null,
-        customer_notes: notes, preferred_date: date,
-        time_slot: timeSlot, visit_type: visitType,
-        dispatch_address: address, extra,
-        created_at: new Date().toISOString().slice(0, 10),
-        updated_at: new Date().toISOString().slice(0, 10),
-      }],
-      audit: [{ ts: new Date().toISOString().slice(0, 16).replace("T", " "), actor: "System", action: "Ticket Created", entity: id, detail: `${SVC_TYPES[service!].name} request submitted` }, ...prev.audit],
-    }));
-    setCreatedId(id);
-    setMode("done");
-    toast(`Service request created: ${id}`, "success");
+      const ticket = await apiCreateTicket({
+        asset_id:         assetId,
+        service_type:     service,
+        customer_notes:   notes || undefined,
+        preferred_date:   date || undefined,
+        time_slot:        timeSlot || undefined,
+        visit_type:       visitType || undefined,
+        dispatch_address: address || undefined,
+        extra,
+      });
+
+      setCreatedId(ticket.ticket_id);
+      setMode("done");
+      toast(`Service request created: ${ticket.ticket_id}`, "success");
+    } catch {
+      toast("Failed to submit request — please try again", "error");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const svcObj = service ? SVC_TYPES[service] : null;
@@ -244,7 +252,7 @@ function ServicesContent() {
                   if (service === "gold_loan") {
                     const v = parseFloat(loanAmt) || 0;
                     if (v <= 0) { toast("Enter a loan amount", "error"); return; }
-                    if (v > maxLoan) { toast(`Amount exceeds 60% eligibility`, "error"); return; }
+                    if (v > maxLoan) { toast("Amount exceeds 60% eligibility", "error"); return; }
                   }
                   setStep(4);
                 }}>Review →</Button>
@@ -279,7 +287,7 @@ function ServicesContent() {
               </Card>
               <div className="flex justify-between">
                 <Button variant="ghost" onClick={() => setStep(3)}>← Back</Button>
-                <Button onClick={submit}>Submit Request →</Button>
+                <Button onClick={submit} disabled={saving}>{saving ? "Submitting…" : "Submit Request →"}</Button>
               </div>
             </>
           )}
@@ -288,7 +296,6 @@ function ServicesContent() {
     );
   }
 
-  // Service list
   return (
     <div>
       <h3 className="font-serif text-[22px] mb-4">Service Marketplace</h3>

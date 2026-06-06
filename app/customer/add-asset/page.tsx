@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useApp } from "@/context/AppContext";
 import { StepIndicator } from "@/components/ui/StepIndicator";
 import { Button } from "@/components/ui/Button";
@@ -12,8 +11,7 @@ import { RadioCardGroup } from "@/components/ui/RadioCard";
 import { UploadZone, ImageThumbs } from "@/components/ui/UploadZone";
 import { Card } from "@/components/ui/Card";
 import { PURITY_MAP, LOCATION_TYPES, ASSET_CATEGORIES } from "@/lib/data";
-import { fmtINR, calcMarketValue, catIcon, generateAssetId } from "@/lib/utils";
-import { RATES } from "@/lib/data";
+import { fmtINR, calcMarketValue, catIcon } from "@/lib/utils";
 import type { Asset, Perspective, LocationType } from "@/lib/types";
 
 const STEPS = [
@@ -41,12 +39,13 @@ interface FormData {
 }
 
 export default function AddAssetPage() {
-  const { db, setDb, toast } = useApp();
+  const { rates, toast, apiAddAsset } = useApp();
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [images, setImages] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState<Asset | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const [form, setForm] = useState<FormData>({
     name: "", category: "", perspective: "customer",
@@ -63,9 +62,9 @@ export default function AddAssetPage() {
   const calcWeight = () => {
     const net = Math.max(0, (form.gross || 0) - (form.deduction || 0));
     const m = form.metal.toLowerCase();
-    let r = RATES.gold;
-    if (m.includes("silver")) r = RATES.silver;
-    else if (m.includes("platinum")) r = RATES.platinum;
+    let r = rates.gold;
+    if (m.includes("silver")) r = rates.silver;
+    else if (m.includes("platinum")) r = rates.platinum;
     setForm((f) => ({ ...f, net, estVal: Math.round(net * r) }));
   };
 
@@ -94,25 +93,46 @@ export default function AddAssetPage() {
     setStep((s) => s + 1);
   };
 
-  const submit = () => {
-    const id = generateAssetId(db.assets.length);
-    const asset: Asset = {
-      asset_id: id, name: form.name, category: form.category,
-      perspective: form.perspective, metal: form.metal,
-      purity: form.purity || form.purityCustom || "—", huid: form.huid,
-      gross: form.gross, deduction: form.deduction, net: form.net,
-      purchase_price: form.purchase_price, purchase_date: form.purchase_date,
-      purchased_from: form.purchased_from, invoice_ref: form.invoice_ref,
-      provenance: form.provenance, occasion: form.occasion, gifted_by: "",
-      location_type: form.location_type,
-      location_detail: { field1: form.l1, field2: form.l2, field3: form.l3 },
-      last_verified: form.last_verified, status: "pending",
-      images: images.slice(), created_at: new Date().toISOString().slice(0, 10),
-      appraised_value: null,
-    };
-    setDb((prev) => ({ ...prev, assets: [...prev.assets, asset] }));
-    setSubmitted(asset);
-    toast("Asset added to vault", "success");
+  const submit = async () => {
+    setSaving(true);
+    try {
+      const locationDetail: Record<string, string> = {};
+      if (form.location_type === "Bank Locker") {
+        if (form.l1) locationDetail.bank = form.l1;
+        if (form.l2) locationDetail.branch = form.l2;
+        if (form.l3) locationDetail.locker = form.l3;
+      } else if (form.location_type === "With Family Member") {
+        if (form.l1) locationDetail.name = form.l1;
+        if (form.l2) locationDetail.relationship = form.l2;
+      }
+
+      const asset = await apiAddAsset({
+        name:           form.name,
+        category:       form.category,
+        perspective:    form.perspective,
+        metal:          form.metal,
+        purity:         form.purity || form.purityCustom || "—",
+        huid:           form.huid || undefined,
+        gross:          form.gross,
+        deduction:      form.deduction,
+        net:            form.net,
+        purchase_price: form.purchase_price,
+        purchase_date:  form.purchase_date || undefined,
+        purchased_from: form.purchased_from || undefined,
+        invoice_ref:    form.invoice_ref || undefined,
+        provenance:     form.provenance || undefined,
+        occasion:       form.occasion || undefined,
+        location_type:  form.location_type,
+        location_detail: locationDetail,
+        images,
+      });
+      setSubmitted(asset);
+      toast("Asset added to vault", "success");
+    } catch {
+      toast("Failed to add asset — please try again", "error");
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (submitted) {
@@ -164,8 +184,7 @@ export default function AddAssetPage() {
               </Select>
             </FormField>
             <FormField label="Product Perspective">
-              <Chips options={PERSPECTIVES} active={form.perspective}
-                onChange={(v) => set("perspective", v as Perspective)} />
+              <Chips options={PERSPECTIVES} active={form.perspective} onChange={(v) => set("perspective", v as Perspective)} />
               <span className="text-[11px] text-[var(--muted)] block mt-1.5">
                 {form.perspective === "heritage" ? "Legacy & provenance focus" : form.perspective === "appraiser" ? "Professional assessment focus" : "Personal wealth focus"}
               </span>
@@ -194,7 +213,6 @@ export default function AddAssetPage() {
                 <option value="">{form.metal ? "Select purity…" : "Select metal first"}</option>
                 {(PURITY_MAP[form.metal] || []).map((p) => <option key={p}>{p}</option>)}
               </Select>
-              <span className="text-[11px] text-[var(--muted)] block mt-1">Quality and Purity refer to the same standard.</span>
             </FormField>
             {form.metal === "Other" && (
               <FormField label="Custom Purity">
@@ -286,7 +304,7 @@ export default function AddAssetPage() {
             ))}
             <div className="flex justify-between mt-4">
               <Button variant="ghost" onClick={() => setStep(4)}>← Back</Button>
-              <Button onClick={submit}>Add to Vault →</Button>
+              <Button onClick={submit} disabled={saving}>{saving ? "Saving…" : "Add to Vault →"}</Button>
             </div>
           </>
         )}

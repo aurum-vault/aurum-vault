@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, DM_Sans } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "@/context/AuthContext";
 import { AppProvider } from "@/context/AppContext";
 import { ToastContainer } from "@/components/ui/Toast";
 
@@ -47,10 +48,12 @@ export default function RootLayout({
       className={`${cormorant.variable} ${dmSans.variable}`}
     >
       <body>
-        <AppProvider>
-          {children}
-          <ToastContainer />
-        </AppProvider>
+        <AuthProvider>
+          <AppProvider>
+            {children}
+            <ToastContainer />
+          </AppProvider>
+        </AuthProvider>
       </body>
     </html>
   );

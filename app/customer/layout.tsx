@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { MobileNav } from "@/components/layout/MobileNav";
@@ -33,20 +34,17 @@ const TITLES: Record<string, string> = {
   "/customer/add-asset": "Add Asset",
 };
 
-export default function CustomerLayout({ children }: { children: React.ReactNode }) {
+export default function CustomerLayout({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
-  const { db, setRole, toast } = useApp();
+  const { db } = useApp();
+  const { logout } = useAuth();
 
   const activeView = MOBILE_NAV.find((n) => pathname === n.view || pathname.startsWith(n.view + "/"))?.view || "/customer";
   const title = TITLES[pathname] || "Aurum Vault";
 
-  const signOut = () => {
-    setRole(null);
-    toast("Signed out", "default");
-    router.push("/");
-  };
+  const signOut = () => logout();
 
   return (
     <div className="flex min-h-screen" style={{ background: "#fbf7f0" }}>
