@@ -1,11 +1,10 @@
 "use client";
 
-import React from "react";
-import { useApp } from "@/context/AppContext";
+import { useAudit } from "@/hooks/useData";
 import { Badge } from "@/components/ui/Badge";
 
 export default function AdminAuditPage() {
-  const { db } = useApp();
+  const { audit } = useAudit();
 
   return (
     <div>
@@ -23,7 +22,7 @@ export default function AdminAuditPage() {
             </tr>
           </thead>
           <tbody>
-            {db.audit.map((a, i) => (
+            {audit.map((a, i) => (
               <tr key={i}>
                 <td className="px-4 py-3.5 text-[13px] border-b border-[var(--border-color)] text-[var(--muted)]">{a.ts}</td>
                 <td className="px-4 py-3.5 text-[13px] border-b border-[var(--border-color)]">{a.actor}</td>

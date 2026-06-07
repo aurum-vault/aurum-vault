@@ -4,6 +4,7 @@ import { use, useState } from "react";
 import Link from "next/link";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
+import { useTickets, useAssets, useReports } from "@/hooks/useData";
 import { Card } from "@/components/ui/Card";
 import { Badge, TicketStatusBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -16,17 +17,20 @@ import { updateTicketStatus } from "@/lib/api";
 
 export default function TicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { db, assetById, reportByTicket, toast, refresh } = useApp();
+  const { toast } = useApp();
   const { token } = useAuth();
+  const { tickets, refetch: refetchTickets } = useTickets();
+  const { assets } = useAssets();
+  const { reports } = useReports();
   const [payOpen, setPayOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const ticket = db.tickets.find((t) => t.ticket_id === id);
+  const ticket = tickets.find((t) => t.ticket_id === id);
   if (!ticket) return <div className="text-center py-12 text-[var(--muted)]">Ticket not found.</div>;
 
-  const asset = assetById(ticket.asset_id);
-  const rep = reportByTicket(ticket.ticket_id);
+  const asset = assets.find((a) => a.asset_id === ticket.asset_id);
+  const rep = reports.find((r) => r.ticket_id === ticket.ticket_id);
   const flow = flowFor(ticket);
   const curIdx = flow.indexOf(ticket.status);
   const ex = ticket.extra as Record<string, string | number | boolean | string[]>;
@@ -38,7 +42,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
     setSaving(true);
     try {
       await updateTicketStatus(token, ticket.ticket_id, status, extra);
-      await refresh();
+      await refetchTickets();
     } catch {
       toast("Action failed — please try again", "error");
     } finally {

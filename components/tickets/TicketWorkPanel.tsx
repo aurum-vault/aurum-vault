@@ -18,7 +18,7 @@ interface Props {
 }
 
 export function TicketWorkPanel({ ticket, report, onUpdate }: Props) {
-  const { toast, refresh } = useApp();
+  const { toast } = useApp();
   const { token } = useAuth();
   const [appraisalNotes, setAppraisalNotes] = useState(report?.notes || "");
   const [appraisalValue, setAppraisalValue] = useState(report?.appraised_value || 0);
@@ -35,7 +35,6 @@ export function TicketWorkPanel({ ticket, report, onUpdate }: Props) {
     setSaving(true);
     try {
       await fn();
-      await refresh();
       onUpdate();
       toast(successMsg, "success");
     } catch {

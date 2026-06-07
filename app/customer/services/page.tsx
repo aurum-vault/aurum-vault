@@ -4,6 +4,7 @@ import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
+import { useAssets, useTickets, useCustomer } from "@/hooks/useData";
 import { createTicket } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -18,10 +19,13 @@ import { SVC_TYPES, REFURB_RATECARD, LOAN_TENURES, LOAN_LTV, VISIT_TYPES, TIME_S
 import type { ServiceType } from "@/lib/types";
 
 function ServicesContent() {
-  const { db, toast, refresh } = useApp();
+  const { toast } = useApp();
   const { token } = useAuth();
   const router = useRouter();
   const params = useSearchParams();
+  const { assets } = useAssets();
+  const { tickets, refetch: refetchTickets } = useTickets();
+  const { customer } = useCustomer();
 
   const [mode, setMode] = useState<"list" | "request" | "done">("list");
   const [step, setStep] = useState(1);
@@ -31,7 +35,7 @@ function ServicesContent() {
   const [date, setDate] = useState("");
   const [timeSlot, setTimeSlot] = useState(TIME_SLOTS[0]);
   const [notes, setNotes] = useState("");
-  const [address, setAddress] = useState(db.customer.address);
+  const [address, setAddress] = useState(customer.address);
   const [refurbItems, setRefurbItems] = useState<string[]>([]);
   const [loanAmt, setLoanAmt] = useState("");
   const [loanTenure, setLoanTenure] = useState(LOAN_TENURES[1]);
@@ -70,7 +74,7 @@ function ServicesContent() {
         extra,
       });
 
-      await refresh();
+      await refetchTickets();
       setCreatedId(ticket.ticket_id);
       setMode("done");
       toast(`Service request created: ${ticket.ticket_id}`, "success");
@@ -82,7 +86,7 @@ function ServicesContent() {
   };
 
   const svcObj = service ? SVC_TYPES[service] : null;
-  const assetObj = db.assets.find((a) => a.asset_id === assetId);
+  const assetObj = assets.find((a) => a.asset_id === assetId);
   const mv = assetObj ? calcMarketValue(assetObj) : 0;
   const maxLoan = Math.round(mv * LOAN_LTV);
   const refurbTotal = refurbItems.reduce((s, n) => s + (REFURB_RATECARD.find((x) => x.name === n)?.price ?? 0), 0);
@@ -138,7 +142,7 @@ function ServicesContent() {
               <FormField label="Choose from your collection">
                 <Select value={assetId} onChange={(e) => setAssetId(e.target.value)}>
                   <option value="">Select asset…</option>
-                  {db.assets.map((a) => (
+                  {assets.map((a) => (
                     <option key={a.asset_id} value={a.asset_id}>{a.name} — {a.metal} {a.net}g</option>
                   ))}
                 </Select>
@@ -292,7 +296,7 @@ function ServicesContent() {
               </Card>
               <div className="flex justify-between">
                 <Button variant="ghost" onClick={() => setStep(3)}>← Back</Button>
-                <Button onClick={submit} disabled={saving}>{saving ? "Submitting…" : "Submit Request →"}</Button>
+                <Button onClick={() => void submit()} disabled={saving}>{saving ? "Submitting…" : "Submit Request →"}</Button>
               </div>
             </>
           )}
@@ -317,7 +321,7 @@ function ServicesContent() {
       </div>
 
       <h3 className="font-serif text-[22px] mb-4">My Requests</h3>
-      {db.tickets.length ? (
+      {tickets.length ? (
         <div className="overflow-x-auto border border-[var(--border-color)] rounded-xl">
           <table className="w-full border-collapse min-w-[640px]">
             <thead>
@@ -328,8 +332,8 @@ function ServicesContent() {
               </tr>
             </thead>
             <tbody>
-              {db.tickets.map((t) => {
-                const a = db.assets.find((a) => a.asset_id === t.asset_id);
+              {tickets.map((t) => {
+                const a = assets.find((a) => a.asset_id === t.asset_id);
                 return (
                   <tr key={t.ticket_id} className="cursor-pointer hover:bg-[var(--gold-light)] transition-colors"
                     onClick={() => router.push(`/customer/services/${t.ticket_id}`)}>

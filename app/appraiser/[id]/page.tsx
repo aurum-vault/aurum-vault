@@ -2,7 +2,7 @@
 
 import { use } from "react";
 import Link from "next/link";
-import { useApp } from "@/context/AppContext";
+import { useTickets, useAssets, useReports } from "@/hooks/useData";
 import { Card } from "@/components/ui/Card";
 import { TicketStatusBadge } from "@/components/ui/Badge";
 import { Timeline } from "@/components/ui/Timeline";
@@ -12,13 +12,15 @@ import { SVC_TYPES, STATUS_LABELS } from "@/lib/data";
 
 export default function AppraiserTicketPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { db, assetById, reportByTicket, refresh } = useApp();
+  const { tickets, refetch: refetchTickets } = useTickets();
+  const { assets } = useAssets();
+  const { reports, refetch: refetchReports } = useReports();
 
-  const ticket = db.tickets.find((t) => t.ticket_id === id);
+  const ticket = tickets.find((t) => t.ticket_id === id);
   if (!ticket) return <div className="text-center py-12 text-[var(--muted)]">Ticket not found.</div>;
 
-  const asset = assetById(ticket.asset_id);
-  const rep = reportByTicket(id);
+  const asset = assets.find((a) => a.asset_id === ticket.asset_id);
+  const rep = reports.find((r) => r.ticket_id === id);
   const flow = flowFor(ticket);
   const curIdx = flow.indexOf(ticket.status);
   const ex = ticket.extra as Record<string, unknown>;
@@ -95,7 +97,7 @@ export default function AppraiserTicketPage({ params }: { params: Promise<{ id: 
             state: i < curIdx ? "done" : i === curIdx ? "active" : "pending",
           } as { label: string; state: "done" | "active" | "pending" }))} />
           <hr className="border-none border-t border-[var(--border-color)] my-4" />
-          <TicketWorkPanel ticket={ticket} report={rep} onUpdate={() => void refresh()} />
+          <TicketWorkPanel ticket={ticket} report={rep} onUpdate={() => { void refetchTickets(); void refetchReports(); }} />
         </Card>
       </div>
     </div>

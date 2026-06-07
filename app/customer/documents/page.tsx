@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { useApp } from "@/context/AppContext";
+import { useDocuments, useAssets } from "@/hooks/useData";
 import { Badge } from "@/components/ui/Badge";
 import { Select } from "@/components/ui/FormField";
 
@@ -9,11 +10,13 @@ const DOC_ICONS: Record<string, string> = { invoice: "🧾", hallmark: "🏅", a
 const DOC_COLORS: Record<string, "green" | "amber" | "red"> = { verified: "green", pending: "amber", rejected: "red" };
 
 export default function DocumentsPage() {
-  const { db, toast } = useApp();
+  const { toast } = useApp();
+  const { documents } = useDocuments();
+  const { assets } = useAssets();
   const [filterAsset, setFilterAsset] = useState("All");
   const [filterType, setFilterType] = useState("All");
 
-  let docs = db.documents.slice();
+  let docs = documents.slice();
   if (filterAsset !== "All") docs = docs.filter((d) => d.asset_id === filterAsset);
   if (filterType !== "All") docs = docs.filter((d) => d.type === filterType);
 
@@ -23,7 +26,7 @@ export default function DocumentsPage() {
       <div className="flex gap-3 flex-wrap mb-5">
         <Select className="w-auto" value={filterAsset} onChange={(e) => setFilterAsset(e.target.value)}>
           <option value="All">All Assets</option>
-          {db.assets.map((a) => <option key={a.asset_id} value={a.asset_id}>{a.name}</option>)}
+          {assets.map((a) => <option key={a.asset_id} value={a.asset_id}>{a.name}</option>)}
         </Select>
         <Select className="w-auto" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
           <option value="All">All Types</option>
@@ -37,7 +40,7 @@ export default function DocumentsPage() {
       {docs.length ? (
         <div className="bg-white border border-[var(--border-color)] rounded-xl shadow-[var(--sh-s)]">
           {docs.map((d) => {
-            const asset = db.assets.find((a) => a.asset_id === d.asset_id);
+            const asset = assets.find((a) => a.asset_id === d.asset_id);
             return (
               <div key={d.document_id} className="flex items-center gap-3 px-5 py-3 border-b border-[var(--border-color)] last:border-b-0">
                 <span className="text-[24px]">{DOC_ICONS[d.type] || "📄"}</span>

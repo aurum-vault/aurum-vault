@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
+import { useAssets, useReports, useDocuments, useTickets } from "@/hooks/useData";
 import { Tabs } from "@/components/ui/Tabs";
 import { Badge, AssetStatusBadge } from "@/components/ui/Badge";
 import { Timeline } from "@/components/ui/Timeline";
@@ -25,23 +26,27 @@ const ASSET_TABS = [
 
 export default function AssetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { db, assetById, reportByAsset, toast, refresh } = useApp();
+  const { toast } = useApp();
   const { token } = useAuth();
   const router = useRouter();
+  const { assets, refetch: refetchAssets } = useAssets();
+  const { reports } = useReports();
+  const { documents } = useDocuments();
+  const { tickets } = useTickets();
   const [tab, setTab] = useState("details");
 
-  const asset = assetById(id);
+  const asset = assets.find((a) => a.asset_id === id);
   if (!asset) return <div className="text-center py-12 text-[var(--muted)]">Asset not found.</div>;
 
-  const rep = reportByAsset(id);
-  const assetDocs = db.documents.filter((d) => d.asset_id === id);
-  const assetTickets = db.tickets.filter((t) => t.asset_id === id);
+  const rep = reports.find((r) => r.asset_id === id);
+  const assetDocs = documents.filter((d) => d.asset_id === id);
+  const assetTickets = tickets.filter((t) => t.asset_id === id);
 
   const addImages = async (imgs: string[]) => {
     if (!token) { toast("Not authenticated", "error"); return; }
     try {
       await updateAsset(token, id, { images: [...asset.images, ...imgs] });
-      await refresh();
+      await refetchAssets();
       toast("Photo added", "success");
     } catch {
       toast("Failed to upload photo", "error");
@@ -57,7 +62,6 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
       </Link>
 
       <div className="grid grid-cols-[300px_1fr] gap-7 items-start max-md:grid-cols-1">
-        {/* Media */}
         <div className="lg:sticky lg:top-[84px]">
           <div className="w-full aspect-square rounded-xl overflow-hidden flex items-center justify-center shadow-[var(--sh-s)]"
             style={{ background: "linear-gradient(135deg,#f5e6c8,#e8d098)" }}>
@@ -87,7 +91,6 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
           </div>
         </div>
 
-        {/* Details */}
         <div>
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>

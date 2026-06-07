@@ -1,17 +1,19 @@
 "use client";
 
-import React from "react";
 import { useRouter } from "next/navigation";
-import { useApp } from "@/context/AppContext";
+import { useTickets, useAssets, useStaff } from "@/hooks/useData";
+import { useAuth } from "@/context/AuthContext";
 import { TicketStatusBadge, PriorityBadge } from "@/components/ui/Badge";
 import { SVC_TYPES } from "@/lib/data";
 
-const TM_ID = "STF-02";
-
 export default function AppraiserQueuePage() {
-  const { db } = useApp();
+  const { tickets } = useTickets();
+  const { assets } = useAssets();
+  const { staff } = useStaff();
+  const { email } = useAuth();
   const router = useRouter();
-  const myTickets = db.tickets.filter((t) => t.assigned_to === TM_ID && t.status !== "closed");
+  const myStaffId = staff.find((s) => s.email === email)?.staff_id ?? null;
+  const myTickets = tickets.filter((t) => myStaffId && t.assigned_to === myStaffId && t.status !== "closed");
 
   return (
     <div>
@@ -30,7 +32,7 @@ export default function AppraiserQueuePage() {
             </thead>
             <tbody>
               {myTickets.map((t) => {
-                const a = db.assets.find((a) => a.asset_id === t.asset_id);
+                const a = assets.find((a) => a.asset_id === t.asset_id);
                 return (
                   <tr key={t.ticket_id} className="cursor-pointer hover:bg-[var(--gold-light)] transition-colors"
                     onClick={() => router.push(`/appraiser/${t.ticket_id}`)}>

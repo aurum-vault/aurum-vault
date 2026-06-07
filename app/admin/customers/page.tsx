@@ -1,20 +1,16 @@
 "use client";
 
-import React from "react";
 import { useRouter } from "next/navigation";
-import { useApp } from "@/context/AppContext";
+import { useAssets, useReports, useTickets, useCustomers } from "@/hooks/useData";
 import { Badge } from "@/components/ui/Badge";
 import { fmtINR, calcMarketValue } from "@/lib/utils";
 
 export default function AdminCustomersPage() {
-  const { db } = useApp();
+  const { customers } = useCustomers();
+  const { assets } = useAssets();
+  const { reports } = useReports();
+  const { tickets } = useTickets();
   const router = useRouter();
-  const c = db.customer;
-
-  const assets = db.assets.length;
-  const av = db.assets.reduce((s, a) => s + calcMarketValue(a), 0);
-  const ap = db.reports.reduce((s, r) => s + r.appraised_value, 0);
-  const ot = db.tickets.filter((t) => !["closed", "cancelled"].includes(t.status)).length;
 
   return (
     <div>
@@ -29,17 +25,32 @@ export default function AdminCustomersPage() {
             </tr>
           </thead>
           <tbody>
-            <tr className="cursor-pointer hover:bg-[var(--gold-light)]" onClick={() => router.push("/admin/customers/profile")}>
-              <td className="px-4 py-3.5 font-bold text-[13px] border-b border-[var(--border-color)]">{c.customer_id}</td>
-              <td className="px-4 py-3.5 text-[13px] border-b border-[var(--border-color)]">{c.full_name}</td>
-              <td className="px-4 py-3.5 text-[13px] border-b border-[var(--border-color)]">+91 {c.mobile}</td>
-              <td className="px-4 py-3.5 text-[13px] border-b border-[var(--border-color)]">{c.email}</td>
-              <td className="px-4 py-3.5 text-[13px] border-b border-[var(--border-color)]">{assets}</td>
-              <td className="px-4 py-3.5 text-[13px] border-b border-[var(--border-color)]">{fmtINR(av)}</td>
-              <td className="px-4 py-3.5 text-[13px] border-b border-[var(--border-color)]">{fmtINR(ap)}</td>
-              <td className="px-4 py-3.5 text-[13px] border-b border-[var(--border-color)]">{ot}</td>
-              <td className="px-4 py-3.5 text-[13px] border-b border-[var(--border-color)]"><Badge variant="green">Active</Badge></td>
-            </tr>
+            {customers.map((c) => {
+              const cTickets = tickets.filter((t) => t.customer_id === c.customer_id);
+              const cAssetIds = new Set(cTickets.map((t) => t.asset_id));
+              const cAssets = assets.filter((a) => cAssetIds.has(a.asset_id));
+              const av = cAssets.reduce((s, a) => s + calcMarketValue(a), 0);
+              const ap = reports
+                .filter((r) => cAssetIds.has(r.asset_id))
+                .reduce((s, r) => s + r.appraised_value, 0);
+              const ot = cTickets.filter((t) => !["closed", "cancelled"].includes(t.status)).length;
+              return (
+                <tr key={c.customer_id} className="cursor-pointer hover:bg-[var(--gold-light)]"
+                  onClick={() => router.push(`/admin/customers/${c.customer_id}`)}>
+                  <td className="px-4 py-3.5 font-bold text-[13px] border-b border-[var(--border-color)]">{c.customer_id}</td>
+                  <td className="px-4 py-3.5 text-[13px] border-b border-[var(--border-color)]">{c.full_name}</td>
+                  <td className="px-4 py-3.5 text-[13px] border-b border-[var(--border-color)]">+91 {c.mobile}</td>
+                  <td className="px-4 py-3.5 text-[13px] border-b border-[var(--border-color)]">{c.email}</td>
+                  <td className="px-4 py-3.5 text-[13px] border-b border-[var(--border-color)]">{cAssets.length}</td>
+                  <td className="px-4 py-3.5 text-[13px] border-b border-[var(--border-color)]">{fmtINR(av)}</td>
+                  <td className="px-4 py-3.5 text-[13px] border-b border-[var(--border-color)]">{fmtINR(ap)}</td>
+                  <td className="px-4 py-3.5 text-[13px] border-b border-[var(--border-color)]">{ot}</td>
+                  <td className="px-4 py-3.5 text-[13px] border-b border-[var(--border-color)]">
+                    <Badge variant={c.status === "active" ? "green" : "grey"}>{c.status}</Badge>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

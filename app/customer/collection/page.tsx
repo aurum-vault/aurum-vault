@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { useApp } from "@/context/AppContext";
+import { useAssets, useReports } from "@/hooks/useData";
 import { AssetCard } from "@/components/assets/AssetCard";
 import { Button } from "@/components/ui/Button";
 import { Chips } from "@/components/ui/Chips";
@@ -17,12 +17,13 @@ const SORT_OPTIONS = [
 ];
 
 export default function CollectionPage() {
-  const { db, reportByAsset } = useApp();
+  const { assets } = useAssets();
+  const { reports } = useReports();
   const [filter, setFilter] = useState("All");
   const [sort, setSort] = useState("value");
   const [search, setSearch] = useState("");
 
-  let list = db.assets.slice();
+  let list = assets.slice();
   if (filter !== "All") list = list.filter((a) => a.metal.toLowerCase().includes(filter.toLowerCase()));
   if (search) list = list.filter((a) => a.name.toLowerCase().includes(search.toLowerCase()));
   if (sort === "value") list.sort((a, b) => calcMarketValue(b) - calcMarketValue(a));
@@ -52,7 +53,7 @@ export default function CollectionPage() {
       {list.length ? (
         <div className="grid grid-cols-4 gap-5 max-lg:grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1">
           {list.map((a) => {
-            const rep = reportByAsset(a.asset_id);
+            const rep = reports.find((r) => r.asset_id === a.asset_id);
             return (
               <AssetCard
                 key={a.asset_id}

@@ -41,7 +41,7 @@ interface FormData {
 }
 
 export default function AddAssetPage() {
-  const { rates, toast, refresh } = useApp();
+  const { rates, toast } = useApp();
   const { token } = useAuth();
   const [step, setStep] = useState(1);
   const [images, setImages] = useState<string[]>([]);
@@ -129,7 +129,6 @@ export default function AddAssetPage() {
         location_detail: locationDetail,
         images,
       });
-      await refresh();
       setSubmitted(asset);
       toast("Asset added to vault", "success");
     } catch {
@@ -308,7 +307,7 @@ export default function AddAssetPage() {
             ))}
             <div className="flex justify-between mt-4">
               <Button variant="ghost" onClick={() => setStep(4)}>← Back</Button>
-              <Button onClick={submit} disabled={saving}>{saving ? "Saving…" : "Add to Vault →"}</Button>
+              <Button onClick={() => void submit()} disabled={saving}>{saving ? "Saving…" : "Add to Vault →"}</Button>
             </div>
           </>
         )}

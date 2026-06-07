@@ -1,13 +1,14 @@
 "use client";
 
-import React from "react";
+import { useTransactions } from "@/hooks/useData";
 import { useApp } from "@/context/AppContext";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { fmtINR } from "@/lib/utils";
 
 export default function AdminTransactionsPage() {
-  const { db, toast } = useApp();
+  const { transactions } = useTransactions();
+  const { toast } = useApp();
 
   return (
     <div>
@@ -25,7 +26,7 @@ export default function AdminTransactionsPage() {
             </tr>
           </thead>
           <tbody>
-            {db.transactions.map((t) => (
+            {transactions.map((t) => (
               <tr key={t.txn_id}>
                 <td className="px-4 py-3.5 font-bold text-[13px] border-b border-[var(--border-color)]">{t.txn_id}</td>
                 <td className="px-4 py-3.5 text-[13px] border-b border-[var(--border-color)]">{t.customer}</td>

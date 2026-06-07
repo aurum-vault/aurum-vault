@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { AuthGuard } from "@/components/AuthGuard";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { MobileNav } from "@/components/layout/MobileNav";
@@ -51,23 +52,25 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const signOut = () => logout();
 
   return (
-    <div className="flex min-h-screen" style={{ background: "#fbf7f0" }}>
-      <Sidebar
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        brand="Admin"
-        navItems={NAV_ITEMS}
-        activeView={activeView}
-        onNav={(view) => router.push(view)}
-        userName={username}
-        userRole={displayRole}
-        avatarInitials={initials}
-      />
-      <div className="flex-1 flex flex-col lg:ml-[240px]">
-        <TopBar title={title} onMenuClick={() => setSidebarOpen(true)} onSignOut={signOut} />
-        <main className="flex-1 p-7 max-w-[1400px] w-full pb-20 sm:pb-7">{children}</main>
+    <AuthGuard allowedRole="admin">
+      <div className="flex min-h-screen" style={{ background: "#fbf7f0" }}>
+        <Sidebar
+          open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          brand="Admin"
+          navItems={NAV_ITEMS}
+          activeView={activeView}
+          onNav={(view) => router.push(view)}
+          userName={username}
+          userRole={displayRole}
+          avatarInitials={initials}
+        />
+        <div className="flex-1 flex flex-col lg:ml-[240px]">
+          <TopBar title={title} onMenuClick={() => setSidebarOpen(true)} onSignOut={signOut} />
+          <main className="flex-1 p-7 max-w-[1400px] w-full pb-20 sm:pb-7">{children}</main>
+        </div>
+        <MobileNav items={MOBILE_NAV} activeView={activeView} onNav={(v) => router.push(v)} />
       </div>
-      <MobileNav items={MOBILE_NAV} activeView={activeView} onNav={(v) => router.push(v)} />
-    </div>
+    </AuthGuard>
   );
 }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
+import { useStaff } from "@/hooks/useData";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
@@ -10,21 +11,25 @@ import { FormField, Input, Select } from "@/components/ui/FormField";
 import { inviteStaff } from "@/lib/api";
 
 export default function AdminTeamPage() {
-  const { db, toast, refresh } = useApp();
+  const { staff, refetch: refetchStaff } = useStaff();
+  const { toast } = useApp();
   const { token } = useAuth();
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"ticket_manager" | "admin">("ticket_manager");
   const [saving, setSaving] = useState(false);
 
   const confirmInvite = async () => {
+    if (!fullName.trim()) { toast("Name required", "error"); return; }
     if (!email) { toast("Email required", "error"); return; }
     if (!token) { toast("Not authenticated", "error"); return; }
     setSaving(true);
     try {
-      await inviteStaff(token, { full_name: email.split("@")[0], email, role });
-      await refresh();
+      await inviteStaff(token, { full_name: fullName.trim(), email, role });
+      await refetchStaff();
       setInviteOpen(false);
+      setFullName("");
       setEmail("");
       toast(`Invite sent to ${email}`, "success");
     } catch {
@@ -51,7 +56,7 @@ export default function AdminTeamPage() {
             </tr>
           </thead>
           <tbody>
-            {db.staff.map((s) => (
+            {staff.map((s) => (
               <tr key={s.staff_id}>
                 <td className="px-4 py-3.5 font-bold text-[13px] border-b border-[var(--border-color)]">{s.full_name}</td>
                 <td className="px-4 py-3.5 text-[13px] border-b border-[var(--border-color)]">{s.email}</td>
@@ -73,6 +78,7 @@ export default function AdminTeamPage() {
 
       <Modal open={inviteOpen} onClose={() => setInviteOpen(false)} title="Invite Staff"
         footer={<><Button variant="ghost" size="sm" onClick={() => setInviteOpen(false)}>Cancel</Button><Button size="sm" disabled={saving} onClick={() => void confirmInvite()}>Send Invite</Button></>}>
+        <FormField label="Full Name"><Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Jane Doe" /></FormField>
         <FormField label="Email"><Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@aurumvault.in" /></FormField>
         <FormField label="Role">
           <Select value={role} onChange={(e) => setRole(e.target.value as "ticket_manager" | "admin")}>

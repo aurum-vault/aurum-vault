@@ -1,20 +1,21 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useApp } from "@/context/AppContext";
+import { useAssets, useReports } from "@/hooks/useData";
 import { AssetCard } from "@/components/assets/AssetCard";
 import { Chips } from "@/components/ui/Chips";
 import { Input } from "@/components/ui/FormField";
 import { calcMarketValue } from "@/lib/utils";
 
 export default function AdminRegistryPage() {
-  const { db, reportByAsset } = useApp();
+  const { assets } = useAssets();
+  const { reports } = useReports();
   const router = useRouter();
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
 
-  let list = db.assets.slice();
+  let list = assets.slice();
   if (filter !== "All") list = list.filter((a) => a.metal.toLowerCase().includes(filter.toLowerCase()));
   if (search) list = list.filter((a) => a.name.toLowerCase().includes(search.toLowerCase()) || a.asset_id.toLowerCase().includes(search.toLowerCase()));
   list.sort((a, b) => calcMarketValue(b) - calcMarketValue(a));
@@ -30,7 +31,7 @@ export default function AdminRegistryPage() {
       {list.length ? (
         <div className="grid grid-cols-4 gap-5 max-lg:grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1">
           {list.map((a) => {
-            const rep = reportByAsset(a.asset_id);
+            const rep = reports.find((r) => r.asset_id === a.asset_id);
             return (
               <AssetCard key={a.asset_id} asset={a} appraisedValue={rep?.appraised_value}
                 showCta={false} onClick={() => router.push(`/admin/customers`)} />

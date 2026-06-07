@@ -2,13 +2,15 @@
 
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
+import { useTickets } from "@/hooks/useData";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 
 export default function AppraiserProfilePage() {
-  const { db, toast } = useApp();
+  const { toast } = useApp();
   const { logout, username, email } = useAuth();
-  const activeTickets = db.tickets.filter((t) => t.status !== "closed" && t.status !== "cancelled").length;
+  const { tickets } = useTickets();
+  const activeTickets = tickets.filter((t) => t.status !== "closed" && t.status !== "cancelled").length;
   const initials = username.slice(0, 2).toUpperCase() || "AU";
 
   return (

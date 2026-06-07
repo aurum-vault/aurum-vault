@@ -1,13 +1,13 @@
 "use client";
 
-import React from "react";
 import { useApp } from "@/context/AppContext";
+import { useCustomer } from "@/hooks/useData";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 
 export default function CustomerProfilePage() {
-  const { db, toast } = useApp();
-  const c = db.customer;
+  const { toast } = useApp();
+  const { customer } = useCustomer();
 
   return (
     <div>
@@ -16,10 +16,10 @@ export default function CustomerProfilePage() {
       <Card className="p-6 max-w-[680px] mb-4">
         <h4 className="font-serif text-[18px] mb-4">Personal Details</h4>
         {[
-          ["Full Name", c.full_name],
-          ["Mobile", `+91 ${c.mobile}`],
-          ["Email", c.email],
-          ["Dispatch Address", c.address],
+          ["Full Name", customer.full_name],
+          ["Mobile", `+91 ${customer.mobile}`],
+          ["Email", customer.email],
+          ["Dispatch Address", customer.address],
         ].map(([k, v]) => (
           <div key={k} className="flex justify-between py-3 border-b border-[var(--border-color)] last:border-b-0 text-[13px]">
             <span className="text-[var(--sec)]">{k}</span>
@@ -33,7 +33,7 @@ export default function CustomerProfilePage() {
         <div className="flex flex-col gap-2.5">
           {[
             { label: "Change Password", arrow: true },
-            { label: `2FA Settings (${c.tfa.toUpperCase()})`, arrow: true },
+            { label: `2FA Settings (${customer.tfa.toUpperCase()})`, arrow: true },
             { label: "Active Sessions", arrow: true },
           ].map((btn) => (
             <button key={btn.label} onClick={() => toast(btn.label, "default")}

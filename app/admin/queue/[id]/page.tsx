@@ -4,6 +4,7 @@ import { use, useState } from "react";
 import Link from "next/link";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
+import { useTickets, useAssets, useStaff, useReports } from "@/hooks/useData";
 import { Card } from "@/components/ui/Card";
 import { TicketStatusBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -16,27 +17,37 @@ import * as api from "@/lib/api";
 
 export default function AdminTicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { db, assetById, reportByTicket, toast, refresh } = useApp();
+  const { toast } = useApp();
   const { token } = useAuth();
+  const { tickets, refetch: refetchTickets } = useTickets();
+  const { assets } = useAssets();
+  const { staff } = useStaff();
+  const { reports, refetch: refetchReports } = useReports();
   const [saving, setSaving] = useState(false);
 
-  const ticket = db.tickets.find((t) => t.ticket_id === id);
+  const ticket = tickets.find((t) => t.ticket_id === id);
   if (!ticket) return <div className="text-center py-12 text-[var(--muted)]">Ticket not found.</div>;
 
-  const asset = assetById(ticket.asset_id);
-  const rep = reportByTicket(id);
+  const asset = assets.find((a) => a.asset_id === ticket.asset_id);
+  const rep = reports.find((r) => r.ticket_id === id);
   const flow = flowFor(ticket);
   const curIdx = flow.indexOf(ticket.status);
   const ex = ticket.extra as Record<string, unknown>;
   const isVisit = SVC_TYPES[ticket.service_type].mode === "visit" || ticket.service_type === "repair";
-  const activeTMs = db.staff.filter((s) => s.role === "ticket_manager" && s.status === "active");
+  const activeTMs = staff.filter((s) => s.role === "ticket_manager" && s.status === "active");
 
   const mutate = async (fn: () => Promise<unknown>, msg: string) => {
     if (!token) { toast("Not authenticated", "error"); return; }
     setSaving(true);
-    try { await fn(); await refresh(); toast(msg, "success"); }
-    catch { toast("Action failed", "error"); }
-    finally { setSaving(false); }
+    try {
+      await fn();
+      await Promise.all([refetchTickets(), refetchReports()]);
+      toast(msg, "success");
+    } catch {
+      toast("Action failed", "error");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const assignTicket = (staffId: string) =>
@@ -62,8 +73,7 @@ export default function AdminTicketDetailPage({ params }: { params: Promise<{ id
         <div>
           <Card className="p-5 mb-4">
             <div className="label-caps mb-1">Customer (full PII)</div>
-            <div className="font-semibold text-[var(--charcoal)] mb-0.5">{db.customer.full_name}</div>
-            <div className="text-[13px] text-[var(--sec)] mb-3">+91 {db.customer.mobile} · {db.customer.email}</div>
+            <div className="font-semibold text-[var(--charcoal)] mb-0.5">{ticket.customer_id}</div>
             {isVisit && (
               <>
                 <div className="label-caps mb-1">{ticket.visit_type === "In-Store Visit" ? "🏬 Visit Type" : "🚪 Visit / Collection"}</div>
@@ -120,7 +130,7 @@ export default function AdminTicketDetailPage({ params }: { params: Promise<{ id
             state: i < curIdx ? "done" : i === curIdx ? "active" : "pending",
           } as { label: string; state: "done" | "active" | "pending" }))} />
           <hr className="border-none border-t border-[var(--border-color)] my-4" />
-          <TicketWorkPanel ticket={ticket} report={rep} onUpdate={() => void refresh()} />
+          <TicketWorkPanel ticket={ticket} report={rep} onUpdate={() => { void refetchTickets(); void refetchReports(); }} />
         </Card>
       </div>
     </div>

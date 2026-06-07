@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useApp } from "@/context/AppContext";
+import { useTickets, useAssets, useStaff } from "@/hooks/useData";
 import { TicketStatusBadge, PriorityBadge } from "@/components/ui/Badge";
 import { Tabs } from "@/components/ui/Tabs";
 import { Chips } from "@/components/ui/Chips";
@@ -19,12 +19,14 @@ const STATUS_TABS = [
 ];
 
 export default function AdminQueuePage() {
-  const { db } = useApp();
+  const { tickets } = useTickets();
+  const { assets } = useAssets();
+  const { staff } = useStaff();
   const router = useRouter();
   const [statusFilter, setStatusFilter] = useState("All");
   const [svcFilter, setSvcFilter] = useState("All");
 
-  let list = db.tickets.slice();
+  let list = tickets.slice();
   if (statusFilter !== "All") list = list.filter((t) => t.status === statusFilter);
   if (svcFilter !== "All") list = list.filter((t) => t.service_type === svcFilter);
 
@@ -47,15 +49,15 @@ export default function AdminQueuePage() {
           </thead>
           <tbody>
             {list.map((t) => {
-              const a = db.assets.find((a) => a.asset_id === t.asset_id);
-              const sn = db.staff.find((s) => s.staff_id === t.assigned_to);
+              const a = assets.find((a) => a.asset_id === t.asset_id);
+              const sn = staff.find((s) => s.staff_id === t.assigned_to);
               return (
                 <tr key={t.ticket_id} className="cursor-pointer hover:bg-[var(--gold-light)] transition-colors"
                   onClick={() => router.push(`/admin/queue/${t.ticket_id}`)}>
                   <td className="px-4 py-3.5 font-bold text-[13px] border-b border-[var(--border-color)]">{t.ticket_id}</td>
                   <td className="px-4 py-3.5 text-[13px] border-b border-[var(--border-color)]">{SVC_TYPES[t.service_type].name}</td>
                   <td className="px-4 py-3.5 text-[13px] border-b border-[var(--border-color)]">{a?.name || "—"}</td>
-                  <td className="px-4 py-3.5 text-[13px] border-b border-[var(--border-color)]">{db.customer.full_name}</td>
+                  <td className="px-4 py-3.5 text-[13px] border-b border-[var(--border-color)]">{t.customer_id}</td>
                   <td className="px-4 py-3.5 text-[13px] border-b border-[var(--border-color)]">{t.created_at}</td>
                   <td className="px-4 py-3.5 text-[13px] border-b border-[var(--border-color)]"><PriorityBadge priority={t.priority} /></td>
                   <td className="px-4 py-3.5 text-[13px] border-b border-[var(--border-color)]">{sn?.full_name || "Unassigned"}</td>

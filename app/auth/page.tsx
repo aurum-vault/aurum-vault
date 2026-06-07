@@ -172,7 +172,8 @@ function AuthInner() {
   useEffect(() => {
     if (!initialized || !token || screen === "register") return;
     if (role === "customer") router.replace("/customer");
-    else if (role === "admin" || role === "ticket_manager") router.replace("/admin");
+    else if (role === "admin") router.replace("/admin");
+    else if (role === "ticket_manager") router.replace("/appraiser");
   }, [initialized, token, role, router, screen]);
 
   // ─── Login ───────────────────────────────────────────────────────────────
@@ -342,9 +343,9 @@ function AuthInner() {
 
               <h2 className="font-serif text-[32px] mb-1.5">Staff Sign In</h2>
               <p className="text-[14px] mb-1" style={{ color: "var(--sec)" }}>Restricted access for administrators and appraisers.</p>
-              <p className="text-[12px] mb-5" style={{ color: "var(--muted)" }}>🔒 aurumvault.in/staff</p>
+              <p className="text-[12px] mb-5" style={{ color: "var(--muted)" }}>🔒 aurumvault.in/auth</p>
 
-              <div className="flex rounded-[10px] p-1 mb-6" style={{ background: "var(--gold-light)" }}>
+              {/* <div className="flex rounded-[10px] p-1 mb-6" style={{ background: "var(--gold-light)" }}>
                 {(["admin", "ticket_manager"] as StaffRole[]).map((r) => (
                   <button
                     key={r}
@@ -360,7 +361,7 @@ function AuthInner() {
                     {r === "admin" ? "Administrator" : "Appraiser"}
                   </button>
                 ))}
-              </div>
+              </div> */}
 
               <FormField label="Username">
                 <Input

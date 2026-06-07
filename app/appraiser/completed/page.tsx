@@ -1,17 +1,20 @@
 "use client";
 
-import React from "react";
 import { useRouter } from "next/navigation";
-import { useApp } from "@/context/AppContext";
+import { useTickets, useAssets, useReports, useStaff } from "@/hooks/useData";
+import { useAuth } from "@/context/AuthContext";
 import { fmtINR } from "@/lib/utils";
 import { SVC_TYPES } from "@/lib/data";
 
-const TM_ID = "STF-02";
-
 export default function AppraiserCompletedPage() {
-  const { db, reportByTicket } = useApp();
+  const { tickets } = useTickets();
+  const { assets } = useAssets();
+  const { reports } = useReports();
+  const { staff } = useStaff();
+  const { email } = useAuth();
   const router = useRouter();
-  const completed = db.tickets.filter((t) => t.assigned_to === TM_ID && ["report_ready", "closed"].includes(t.status));
+  const myStaffId = staff.find((s) => s.email === email)?.staff_id ?? null;
+  const completed = tickets.filter((t) => myStaffId && t.assigned_to === myStaffId && ["report_ready", "closed"].includes(t.status));
 
   return (
     <div>
@@ -19,8 +22,8 @@ export default function AppraiserCompletedPage() {
       {completed.length ? (
         <div className="grid grid-cols-4 gap-5 max-lg:grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1">
           {completed.map((t) => {
-            const a = db.assets.find((a) => a.asset_id === t.asset_id);
-            const rep = reportByTicket(t.ticket_id);
+            const a = assets.find((a) => a.asset_id === t.asset_id);
+            const rep = reports.find((r) => r.ticket_id === t.ticket_id);
             return (
               <div key={t.ticket_id}
                 className="bg-white border border-[var(--border-color)] rounded-xl p-4 cursor-pointer shadow-[var(--sh-s)] hover:shadow-[var(--sh-m)] transition-all"

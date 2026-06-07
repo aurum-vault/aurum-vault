@@ -1,8 +1,7 @@
 "use client";
 
-import React from "react";
 import Link from "next/link";
-import { useApp } from "@/context/AppContext";
+import { useAssets, useReports, useCustomer } from "@/hooks/useData";
 import { MetricCard } from "@/components/ui/Card";
 import { RatesStrip } from "@/components/assets/RatesStrip";
 import { AppFooter } from "@/components/layout/AppFooter";
@@ -10,16 +9,17 @@ import { Button } from "@/components/ui/Button";
 import { calcMarketValue, fmtINR } from "@/lib/utils";
 
 export default function CustomerHome() {
-  const { db, reportByAsset } = useApp();
-  const assets = db.assets;
+  const { assets } = useAssets();
+  const { reports } = useReports();
+  const { customer } = useCustomer();
 
   const totalVault = assets.reduce((s, a) => s + calcMarketValue(a), 0);
-  const appraised = assets.filter((a) => reportByAsset(a.asset_id));
+  const appraised = assets.filter((a) => reports.some((r) => r.asset_id === a.asset_id));
   const appraisedTotal = appraised.reduce((s, a) => {
-    const r = reportByAsset(a.asset_id);
+    const r = reports.find((r) => r.asset_id === a.asset_id);
     return s + (r?.appraised_value ?? 0);
   }, 0);
-  const nonAppraised = assets.filter((a) => !reportByAsset(a.asset_id));
+  const nonAppraised = assets.filter((a) => !reports.some((r) => r.asset_id === a.asset_id));
   const nonAppraisedTotal = nonAppraised.reduce((s, a) => s + calcMarketValue(a), 0);
 
   const recentActivity = [
@@ -40,7 +40,7 @@ export default function CustomerHome() {
   return (
     <div>
       <div className="mb-2">
-        <h2 className="font-serif text-[32px]">Good day, {db.customer.full_name.split(" ")[0]} 👋</h2>
+        <h2 className="font-serif text-[32px]">Good day, {customer.full_name.split(" ")[0] || "there"} 👋</h2>
         <p className="text-[var(--sec)]">Here&apos;s an overview of your precious asset vault.</p>
       </div>
 
