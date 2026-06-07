@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
-import { use } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 import { Tabs } from "@/components/ui/Tabs";
 import { Badge, AssetStatusBadge } from "@/components/ui/Badge";
 import { Timeline } from "@/components/ui/Timeline";
@@ -13,18 +13,20 @@ import { Card } from "@/components/ui/Card";
 import { UploadZone, ImageThumbs } from "@/components/ui/UploadZone";
 import { fmtINR, calcMarketValue, catIcon, locIcon, metalIcon } from "@/lib/utils";
 import { SVC_TYPES } from "@/lib/data";
+import { updateAsset } from "@/lib/api";
 
 const ASSET_TABS = [
-  { value: "details", label: "Details" },
+  { value: "details",   label: "Details" },
   { value: "documents", label: "Documents" },
   { value: "appraisal", label: "Appraisal Report" },
-  { value: "activity", label: "Activity" },
-  { value: "service", label: "Service History" },
+  { value: "activity",  label: "Activity" },
+  { value: "service",   label: "Service History" },
 ];
 
 export default function AssetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { db, setDb, assetById, reportByAsset, toast } = useApp();
+  const { db, assetById, reportByAsset, toast, refresh } = useApp();
+  const { token } = useAuth();
   const router = useRouter();
   const [tab, setTab] = useState("details");
 
@@ -35,14 +37,15 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
   const assetDocs = db.documents.filter((d) => d.asset_id === id);
   const assetTickets = db.tickets.filter((t) => t.asset_id === id);
 
-  const addImages = (imgs: string[]) => {
-    setDb((prev) => ({
-      ...prev,
-      assets: prev.assets.map((a) =>
-        a.asset_id === id ? { ...a, images: [...a.images, ...imgs] } : a
-      ),
-    }));
-    toast("Photo added", "success");
+  const addImages = async (imgs: string[]) => {
+    if (!token) { toast("Not authenticated", "error"); return; }
+    try {
+      await updateAsset(token, id, { images: [...asset.images, ...imgs] });
+      await refresh();
+      toast("Photo added", "success");
+    } catch {
+      toast("Failed to upload photo", "error");
+    }
   };
 
   const persBadge = { customer: "Customer", heritage: "Heritage", appraiser: "Appraiser" }[asset.perspective] || "";
@@ -105,13 +108,13 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
 
           <div className="grid grid-cols-3 gap-3 my-3.5">
             {[
-              { label: "Market Value", val: fmtINR(calcMarketValue(asset)), color: "var(--gold-accent)" },
-              { label: "Purchase Value", val: fmtINR(asset.purchase_price), color: "" },
+              { label: "Market Value",    val: fmtINR(calcMarketValue(asset)), color: "var(--gold-accent)" },
+              { label: "Purchase Value",  val: fmtINR(asset.purchase_price),   color: "" },
               { label: "Appraised Value", val: rep ? fmtINR(rep.appraised_value) : "Not Yet Appraised", color: rep ? "var(--green)" : "var(--amber)" },
             ].map((v) => (
               <div key={v.label} className="border border-[var(--border-color)] rounded-xl p-3.5 bg-white">
                 <div className="text-[10px] tracking-[1px] uppercase text-[var(--muted)] font-bold">{v.label}</div>
-                <div className="font-serif text-[22px] font-bold mt-1" style={{ color: v.color || "var(--charcoal)", fontSize: rep ? 22 : 15 }}>{v.val}</div>
+                <div className="font-serif font-bold mt-1" style={{ color: v.color || "var(--charcoal)", fontSize: rep ? 22 : 15 }}>{v.val}</div>
               </div>
             ))}
           </div>
@@ -119,8 +122,8 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
           <div className="grid grid-cols-2 gap-x-7 mb-4">
             {[
               ["Gross Weight", `${asset.gross}g`],
-              ["Deduction", `${asset.deduction}g`],
-              ["Net Weight", `${asset.net}g`],
+              ["Deduction",    `${asset.deduction}g`],
+              ["Net Weight",   `${asset.net}g`],
               ["Last Verified", asset.last_verified || "—"],
             ].map(([k, v]) => (
               <div key={k} className="flex justify-between py-2 border-b border-[var(--border-color)] text-[13px]">
@@ -132,16 +135,20 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
 
           <Tabs tabs={ASSET_TABS} active={tab} onChange={setTab} />
 
-          {/* Tab content */}
           {tab === "details" && (
             <Card className="p-5 px-6">
               <div className="grid grid-cols-2 gap-x-7">
                 {[
-                  ["Category", asset.category], ["Perspective", asset.perspective],
-                  ["Metal", asset.metal], ["Purity", asset.purity],
-                  ["HUID", asset.huid || "—"], ["Purchased From", asset.purchased_from || "—"],
-                  ["Purchase Date", asset.purchase_date || "—"], ["Invoice Ref", asset.invoice_ref || "—"],
-                  ["Occasion", asset.occasion || "—"], ["Gifted By", asset.gifted_by || "—"],
+                  ["Category",       asset.category],
+                  ["Perspective",    asset.perspective],
+                  ["Metal",          asset.metal],
+                  ["Purity",         asset.purity],
+                  ["HUID",           asset.huid || "—"],
+                  ["Purchased From", asset.purchased_from || "—"],
+                  ["Purchase Date",  asset.purchase_date || "—"],
+                  ["Invoice Ref",    asset.invoice_ref || "—"],
+                  ["Occasion",       asset.occasion || "—"],
+                  ["Gifted By",      asset.gifted_by || "—"],
                 ].map(([k, v]) => (
                   <div key={k} className="flex justify-between py-2 border-b border-[var(--border-color)] text-[13px]">
                     <span className="text-[var(--sec)]">{k}</span>
@@ -245,7 +252,7 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
                         <td className="px-4 py-3.5 text-[13px] border-b border-[var(--border-color)]">{SVC_TYPES[t.service_type].name}</td>
                         <td className="px-4 py-3.5 text-[13px] border-b border-[var(--border-color)]">{t.created_at}</td>
                         <td className="px-4 py-3.5 text-[13px] border-b border-[var(--border-color)]">
-                          <Badge variant={({ submitted: "grey", assigned: "blue", in_progress: "amber", awaiting_info: "amber", quote_ready: "blue", awaiting_payment: "amber", report_ready: "green", closed: "grey", cancelled: "red" } as Record<string, "grey" | "blue" | "amber" | "green" | "red">)[t.status] || "grey"}>
+                          <Badge variant={(({ submitted: "grey", assigned: "blue", in_progress: "amber", awaiting_info: "amber", quote_ready: "blue", awaiting_payment: "amber", report_ready: "green", closed: "grey", cancelled: "red" } as Record<string, "grey" | "blue" | "amber" | "green" | "red">)[t.status] || "grey")}>
                             {t.status.replace(/_/g, " ")}
                           </Badge>
                         </td>

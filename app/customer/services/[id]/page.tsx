@@ -1,25 +1,26 @@
 "use client";
 
-import React, { use, useState } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
 import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 import { Card } from "@/components/ui/Card";
 import { Badge, TicketStatusBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Timeline } from "@/components/ui/Timeline";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, Input } from "@/components/ui/FormField";
-import { OTPInput } from "@/components/ui/OTPInput";
-import { fmtINR, flowFor, nowTs } from "@/lib/utils";
+import { fmtINR, flowFor } from "@/lib/utils";
 import { SVC_TYPES, STATUS_LABELS, REFURB_RATECARD } from "@/lib/data";
-import type { TicketStatus } from "@/lib/types";
+import { updateTicketStatus } from "@/lib/api";
 
 export default function TicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { db, setDb, assetById, reportByTicket, toast } = useApp();
+  const { db, assetById, reportByTicket, toast, refresh } = useApp();
+  const { token } = useAuth();
   const [payOpen, setPayOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
-  const [otpPay, setOtpPay] = useState(["", "", "", "", "", ""]);
+  const [saving, setSaving] = useState(false);
 
   const ticket = db.tickets.find((t) => t.ticket_id === id);
   if (!ticket) return <div className="text-center py-12 text-[var(--muted)]">Ticket not found.</div>;
@@ -32,41 +33,39 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
   const svc = SVC_TYPES[ticket.service_type];
   const isVisit = svc.mode === "visit" || ticket.service_type === "repair";
 
-  const updateTicket = (updates: Partial<typeof ticket>) => {
-    setDb((prev) => ({
-      ...prev,
-      tickets: prev.tickets.map((t) => t.ticket_id === id ? { ...t, ...updates, updated_at: new Date().toISOString().slice(0, 10) } : t),
-    }));
+  const mutate = async (status: string, extra?: Record<string, unknown>) => {
+    if (!token) { toast("Not authenticated", "error"); return; }
+    setSaving(true);
+    try {
+      await updateTicketStatus(token, ticket.ticket_id, status, extra);
+      await refresh();
+    } catch {
+      toast("Action failed — please try again", "error");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const acceptQuote = () => {
-    updateTicket({ status: "awaiting_payment" });
-    setDb((prev) => ({
-      ...prev,
-      audit: [{ ts: nowTs(), actor: db.customer.full_name, action: "Quote Accepted", entity: id, detail: `Repair quote ${fmtINR(ex.quote_amount as number)} accepted` }, ...prev.audit],
-    }));
+    void mutate("awaiting_payment");
     toast("Quote accepted — please proceed to payment", "success");
   };
 
-  const confirmPay = () => {
-    const amt = (ex.quote_amount as number) || ex.rateTotal as number || 0;
-    updateTicket({ status: "in_progress", extra: { ...ex, paid: true } });
-    setDb((prev) => ({
-      ...prev,
-      transactions: [{ txn_id: `TXN-${Math.floor(9000 + Math.random() * 999)}`, customer: db.customer.full_name, service: svc.name, asset: asset?.name || "—", amount: amt, date: new Date().toISOString().slice(0, 10), status: "Paid" }, ...prev.transactions],
-      audit: [{ ts: nowTs(), actor: db.customer.full_name, action: "Payment Made", entity: id, detail: `${fmtINR(amt)} paid online` }, ...prev.audit],
-    }));
+  const confirmPay = async () => {
+    await mutate("in_progress", { paid: true });
     setPayOpen(false);
     toast("Payment successful — work will begin", "success");
   };
 
-  const cancelTicket = () => {
-    updateTicket({ status: "cancelled" });
+  const cancelTicket = async () => {
+    await mutate("cancelled");
     setCancelOpen(false);
     toast("Request cancelled", "default");
   };
 
-  const refurbTotal = ((ex.refurb as string[]) || []).reduce((s, n) => s + (REFURB_RATECARD.find((x) => x.name === n)?.price ?? 0), 0);
+  const refurbTotal = ((ex.refurb as string[]) || []).reduce(
+    (s, n) => s + (REFURB_RATECARD.find((x) => x.name === n)?.price ?? 0), 0,
+  );
 
   return (
     <div>
@@ -102,7 +101,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
             state: i < curIdx ? "done" : i === curIdx ? "active" : "pending",
           } as { label: string; state: "done" | "active" | "pending" }))} />
           {ticket.status === "submitted" && (
-            <Button variant="danger" size="sm" className="mt-4" onClick={() => setCancelOpen(true)}>Cancel Request</Button>
+            <Button variant="danger" size="sm" className="mt-4" disabled={saving} onClick={() => setCancelOpen(true)}>Cancel Request</Button>
           )}
         </Card>
 
@@ -130,7 +129,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
                       <div className="font-serif text-[26px] font-bold text-[var(--gold-accent)]">{fmtINR(ex.quote_amount as number)}</div>
                     </div>
                     {ex.paid ? <Badge variant="green">Paid</Badge> :
-                      ticket.status === "quote_ready" ? <Button size="sm" onClick={acceptQuote}>Accept Quote</Button> :
+                      ticket.status === "quote_ready" ? <Button size="sm" disabled={saving} onClick={acceptQuote}>Accept Quote</Button> :
                         ticket.status === "awaiting_payment" ? <Button size="sm" onClick={() => setPayOpen(true)}>💳 Pay Now</Button> : null}
                   </div>
                 </Card>
@@ -163,26 +162,23 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
           )}
 
           {ticket.service_type === "appraisal_purity" && (
-            <>
-              {rep ? (
-                <>
-                  <div className="label-caps mb-1.5">Specialist Notes</div>
-                  <p className="mb-4">{rep.notes}</p>
-                  <div className="label-caps mb-1">Appraised Value</div>
-                  <div className="font-serif text-[24px] text-[var(--green)] font-bold mb-4">{fmtINR(rep.appraised_value)}</div>
-                  <Button size="sm" onClick={() => toast("Certificate download coming soon", "default")}>📜 View Digital Certificate</Button>
-                </>
-              ) : (
-                <p className="text-[var(--muted)] italic text-[13px]">Specialist notes will appear here once the report is ready.</p>
-              )}
-            </>
+            rep ? (
+              <>
+                <div className="label-caps mb-1.5">Specialist Notes</div>
+                <p className="mb-4">{rep.notes}</p>
+                <div className="label-caps mb-1">Appraised Value</div>
+                <div className="font-serif text-[24px] text-[var(--green)] font-bold mb-4">{fmtINR(rep.appraised_value)}</div>
+                <Button size="sm" onClick={() => toast("Certificate download coming soon", "default")}>📜 View Digital Certificate</Button>
+              </>
+            ) : (
+              <p className="text-[var(--muted)] italic text-[13px]">Specialist notes will appear here once the report is ready.</p>
+            )
           )}
         </Card>
       </div>
 
-      {/* Pay Modal */}
       <Modal open={payOpen} onClose={() => setPayOpen(false)} title="Secure Payment"
-        footer={<><Button variant="ghost" size="sm" onClick={() => setPayOpen(false)}>Cancel</Button><Button size="sm" onClick={confirmPay}>Pay {fmtINR((ex.quote_amount as number) || refurbTotal)}</Button></>}>
+        footer={<><Button variant="ghost" size="sm" onClick={() => setPayOpen(false)}>Cancel</Button><Button size="sm" disabled={saving} onClick={() => void confirmPay()}>Pay {fmtINR((ex.quote_amount as number) || refurbTotal)}</Button></>}>
         <div className="text-center mb-4">
           <div className="label-caps">Amount Payable</div>
           <div className="font-serif text-[34px] font-bold text-[var(--gold-accent)] my-1.5">{fmtINR((ex.quote_amount as number) || refurbTotal)}</div>
@@ -195,9 +191,8 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
         <p className="text-[11px] text-[var(--muted)]">🔒 Demo payment — no real charge is made.</p>
       </Modal>
 
-      {/* Cancel Modal */}
       <Modal open={cancelOpen} onClose={() => setCancelOpen(false)} title="Cancel Request"
-        footer={<><Button variant="ghost" size="sm" onClick={() => setCancelOpen(false)}>Keep Request</Button><Button variant="danger" size="sm" onClick={cancelTicket}>Yes, Cancel</Button></>}>
+        footer={<><Button variant="ghost" size="sm" onClick={() => setCancelOpen(false)}>Keep Request</Button><Button variant="danger" size="sm" disabled={saving} onClick={() => void cancelTicket()}>Yes, Cancel</Button></>}>
         <p>Are you sure you want to cancel this service request? This cannot be undone.</p>
       </Modal>
     </div>

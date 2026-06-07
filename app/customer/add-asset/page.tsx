@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
+import { createAsset } from "@/lib/api";
 import { StepIndicator } from "@/components/ui/StepIndicator";
 import { Button } from "@/components/ui/Button";
 import { FormField, Input, Select, Textarea } from "@/components/ui/FormField";
@@ -39,8 +41,8 @@ interface FormData {
 }
 
 export default function AddAssetPage() {
-  const { rates, toast, apiAddAsset } = useApp();
-  const router = useRouter();
+  const { rates, toast, refresh } = useApp();
+  const { token } = useAuth();
   const [step, setStep] = useState(1);
   const [images, setImages] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -106,7 +108,8 @@ export default function AddAssetPage() {
         if (form.l2) locationDetail.relationship = form.l2;
       }
 
-      const asset = await apiAddAsset({
+      if (!token) throw new Error("Not authenticated");
+      const asset = await createAsset(token, {
         name:           form.name,
         category:       form.category,
         perspective:    form.perspective,
@@ -126,6 +129,7 @@ export default function AddAssetPage() {
         location_detail: locationDetail,
         images,
       });
+      await refresh();
       setSubmitted(asset);
       toast("Asset added to vault", "success");
     } catch {

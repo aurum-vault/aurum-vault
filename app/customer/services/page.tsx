@@ -3,6 +3,8 @@
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
+import { createTicket } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StepIndicator } from "@/components/ui/StepIndicator";
@@ -16,7 +18,8 @@ import { SVC_TYPES, REFURB_RATECARD, LOAN_TENURES, LOAN_LTV, VISIT_TYPES, TIME_S
 import type { ServiceType } from "@/lib/types";
 
 function ServicesContent() {
-  const { db, toast, apiCreateTicket } = useApp();
+  const { db, toast, refresh } = useApp();
+  const { token } = useAuth();
   const router = useRouter();
   const params = useSearchParams();
 
@@ -55,7 +58,8 @@ function ServicesContent() {
       }
       if (service === "gold_loan") { extra.loanAmt = loanAmt; extra.tenure = loanTenure; }
 
-      const ticket = await apiCreateTicket({
+      if (!token) throw new Error("Not authenticated");
+      const ticket = await createTicket(token, {
         asset_id:         assetId,
         service_type:     service,
         customer_notes:   notes || undefined,
@@ -66,6 +70,7 @@ function ServicesContent() {
         extra,
       });
 
+      await refresh();
       setCreatedId(ticket.ticket_id);
       setMode("done");
       toast(`Service request created: ${ticket.ticket_id}`, "success");

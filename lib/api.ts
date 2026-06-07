@@ -249,6 +249,16 @@ export async function deleteAsset(token: string, id: string): Promise<void> {
   return del<void>(`/assets/${id}`, token);
 }
 
+export async function assignTicket(token: string, id: string, staffId: string, priority?: string): Promise<ServiceTicket> {
+  const raw = await patch<RawTicket>(`/tickets/${id}/assign`, token, { staff_id: staffId, priority });
+  return adaptTicket(raw);
+}
+
+export async function updateTicketStatus(token: string, id: string, status: string, extra?: Record<string, unknown>): Promise<ServiceTicket> {
+  const raw = await patch<RawTicket>(`/tickets/${id}/status`, token, { status, extra });
+  return adaptTicket(raw);
+}
+
 export async function fetchTickets(token: string): Promise<ServiceTicket[]> {
   const raw = await get<RawTicket[]>("/tickets", token);
   return raw.map(adaptTicket);
@@ -269,6 +279,31 @@ export async function createTicket(
 ): Promise<ServiceTicket> {
   const raw = await post<RawTicket>("/tickets", token, data);
   return adaptTicket(raw);
+}
+
+export async function createReport(
+  token: string,
+  data: { ticket_id: string; asset_id: string; appraised_value: number; notes?: string; images?: string[]; status?: string },
+): Promise<Report> {
+  const raw = await post<RawReport>("/reports", token, data);
+  return adaptReport(raw);
+}
+
+export async function updateReport(
+  token: string,
+  id: string,
+  data: { appraised_value?: number; notes?: string; images?: string[]; status?: string },
+): Promise<Report> {
+  const raw = await put<RawReport>(`/reports/${id}`, token, data);
+  return adaptReport(raw);
+}
+
+export async function inviteStaff(
+  token: string,
+  data: { full_name: string; email: string; role: string; mobile?: string },
+): Promise<Staff> {
+  const raw = await post<RawStaff>("/admin/staff", token, data);
+  return adaptStaff(raw);
 }
 
 export async function fetchReports(token: string): Promise<Report[]> {

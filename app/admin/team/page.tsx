@@ -1,30 +1,37 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { FormField, Input, Select } from "@/components/ui/FormField";
+import { inviteStaff } from "@/lib/api";
 
 export default function AdminTeamPage() {
-  const { db, setDb, toast } = useApp();
+  const { db, toast, refresh } = useApp();
+  const { token } = useAuth();
   const [inviteOpen, setInviteOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"ticket_manager" | "admin">("ticket_manager");
+  const [saving, setSaving] = useState(false);
 
-  const confirmInvite = () => {
+  const confirmInvite = async () => {
     if (!email) { toast("Email required", "error"); return; }
-    setDb((prev) => ({
-      ...prev,
-      staff: [...prev.staff, {
-        staff_id: `STF-${String(prev.staff.length + 1).padStart(2, "0")}`,
-        full_name: email.split("@")[0], email, role, status: "invited", last_login: "—",
-      }],
-    }));
-    setInviteOpen(false);
-    setEmail("");
-    toast(`Invite sent to ${email}`, "success");
+    if (!token) { toast("Not authenticated", "error"); return; }
+    setSaving(true);
+    try {
+      await inviteStaff(token, { full_name: email.split("@")[0], email, role });
+      await refresh();
+      setInviteOpen(false);
+      setEmail("");
+      toast(`Invite sent to ${email}`, "success");
+    } catch {
+      toast("Failed to send invite", "error");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -65,7 +72,7 @@ export default function AdminTeamPage() {
       </div>
 
       <Modal open={inviteOpen} onClose={() => setInviteOpen(false)} title="Invite Staff"
-        footer={<><Button variant="ghost" size="sm" onClick={() => setInviteOpen(false)}>Cancel</Button><Button size="sm" onClick={confirmInvite}>Send Invite</Button></>}>
+        footer={<><Button variant="ghost" size="sm" onClick={() => setInviteOpen(false)}>Cancel</Button><Button size="sm" disabled={saving} onClick={() => void confirmInvite()}>Send Invite</Button></>}>
         <FormField label="Email"><Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@aurumvault.in" /></FormField>
         <FormField label="Role">
           <Select value={role} onChange={(e) => setRole(e.target.value as "ticket_manager" | "admin")}>

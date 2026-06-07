@@ -1,21 +1,24 @@
 "use client";
 
-import React, { use, useState } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
 import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 import { Card } from "@/components/ui/Card";
 import { TicketStatusBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Timeline } from "@/components/ui/Timeline";
 import { Select } from "@/components/ui/FormField";
 import { TicketWorkPanel } from "@/components/tickets/TicketWorkPanel";
-import { flowFor, nowTs, catIcon } from "@/lib/utils";
+import { flowFor, catIcon } from "@/lib/utils";
 import { SVC_TYPES, STATUS_LABELS } from "@/lib/data";
+import * as api from "@/lib/api";
 
 export default function AdminTicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { db, setDb, assetById, reportByTicket, toast } = useApp();
-  const [refresh, setRefresh] = useState(0);
+  const { db, assetById, reportByTicket, toast, refresh } = useApp();
+  const { token } = useAuth();
+  const [saving, setSaving] = useState(false);
 
   const ticket = db.tickets.find((t) => t.ticket_id === id);
   if (!ticket) return <div className="text-center py-12 text-[var(--muted)]">Ticket not found.</div>;
@@ -28,24 +31,24 @@ export default function AdminTicketDetailPage({ params }: { params: Promise<{ id
   const isVisit = SVC_TYPES[ticket.service_type].mode === "visit" || ticket.service_type === "repair";
   const activeTMs = db.staff.filter((s) => s.role === "ticket_manager" && s.status === "active");
 
-  const assignTicket = (staffId: string) => {
-    setDb((prev) => ({
-      ...prev,
-      tickets: prev.tickets.map((t) => t.ticket_id === id ? { ...t, assigned_to: staffId, status: t.status === "submitted" ? "assigned" : t.status, updated_at: new Date().toISOString().slice(0, 10) } : t),
-      audit: [{ ts: nowTs(), actor: "Valli Kumar", action: "Assigned Ticket", entity: id, detail: `Assigned to ${db.staff.find((s) => s.staff_id === staffId)?.full_name || staffId}` }, ...prev.audit],
-    }));
-    toast(`Ticket assigned`, "success");
-    setRefresh((r) => r + 1);
+  const mutate = async (fn: () => Promise<unknown>, msg: string) => {
+    if (!token) { toast("Not authenticated", "error"); return; }
+    setSaving(true);
+    try { await fn(); await refresh(); toast(msg, "success"); }
+    catch { toast("Action failed", "error"); }
+    finally { setSaving(false); }
   };
 
+  const assignTicket = (staffId: string) =>
+    mutate(() => api.assignTicket(token!, id, staffId), "Ticket assigned");
+
   const setPriority = (p: string) => {
-    setDb((prev) => ({ ...prev, tickets: prev.tickets.map((t) => t.ticket_id === id ? { ...t, priority: p as "high" | "medium" | "low" } : t) }));
-    toast(`Priority set to ${p}`, "default");
-    setRefresh((r) => r + 1);
+    if (!ticket.assigned_to) { toast("Assign a staff member first", "warn"); return; }
+    void mutate(() => api.assignTicket(token!, id, ticket.assigned_to!, p), `Priority → ${p}`);
   };
 
   return (
-    <div key={refresh}>
+    <div>
       <Link href="/admin/queue" className="inline-flex items-center gap-2 text-[var(--gold)] font-semibold text-[14px] mb-4 cursor-pointer">← Back to Queue</Link>
       <div className="flex items-start justify-between mb-5 flex-wrap gap-3">
         <div>
@@ -75,7 +78,7 @@ export default function AdminTicketDetailPage({ params }: { params: Promise<{ id
               </>
             )}
             <div className="label-caps mb-1">Asset</div>
-            <div className="font-semibold mb-0.5">{asset?.name} · {asset?.metal} {asset?.net}g</div>
+            <div className="font-semibold mb-0.5">{catIcon(asset?.category || "")} {asset?.name} · {asset?.metal} {asset?.net}g</div>
             {asset?.huid && <div className="text-[12px] text-[var(--sec)] mb-3">HUID: {asset.huid}</div>}
             <div className="label-caps mb-1">Customer Instructions</div>
             <p className="text-[13px] mb-2">{ticket.customer_notes || "—"}</p>
@@ -93,13 +96,16 @@ export default function AdminTicketDetailPage({ params }: { params: Promise<{ id
               <Select className="flex-1" defaultValue={ticket.assigned_to || ""} id="assign-sel">
                 {activeTMs.map((s) => <option key={s.staff_id} value={s.staff_id}>{s.full_name}</option>)}
               </Select>
-              <Button size="sm" onClick={() => { const sel = (document.getElementById("assign-sel") as HTMLSelectElement)?.value; if (sel) assignTicket(sel); }}>Assign</Button>
+              <Button size="sm" disabled={saving} onClick={() => {
+                const sel = (document.getElementById("assign-sel") as HTMLSelectElement)?.value;
+                if (sel) void assignTicket(sel);
+              }}>Assign</Button>
             </div>
             <div className="label-caps mb-2">Priority</div>
             <div className="flex gap-2">
               {["high", "medium", "low"].map((p) => (
-                <button key={p} onClick={() => setPriority(p)}
-                  className={`px-4 py-2 rounded-full border-[1.5px] text-[13px] font-medium cursor-pointer transition-all ${ticket.priority === p ? "bg-gradient-to-br from-[#7a4e08] to-[#b8860b] text-white border-transparent" : "bg-white border-[var(--border-color)] text-[var(--sec)] hover:border-[var(--border-active)]"}`}>
+                <button key={p} disabled={saving} onClick={() => setPriority(p)}
+                  className={`px-4 py-2 rounded-full border-[1.5px] text-[13px] font-medium cursor-pointer transition-all disabled:opacity-50 ${ticket.priority === p ? "bg-gradient-to-br from-[#7a4e08] to-[#b8860b] text-white border-transparent" : "bg-white border-[var(--border-color)] text-[var(--sec)] hover:border-[var(--border-active)]"}`}>
                   {p}
                 </button>
               ))}
@@ -114,7 +120,7 @@ export default function AdminTicketDetailPage({ params }: { params: Promise<{ id
             state: i < curIdx ? "done" : i === curIdx ? "active" : "pending",
           } as { label: string; state: "done" | "active" | "pending" }))} />
           <hr className="border-none border-t border-[var(--border-color)] my-4" />
-          <TicketWorkPanel ticket={ticket} report={rep} by="admin" onUpdate={() => setRefresh((r) => r + 1)} />
+          <TicketWorkPanel ticket={ticket} report={rep} onUpdate={() => void refresh()} />
         </Card>
       </div>
     </div>

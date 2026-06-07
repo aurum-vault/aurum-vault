@@ -1,6 +1,6 @@
 "use client";
 
-import React, { use, useState } from "react";
+import { use } from "react";
 import Link from "next/link";
 import { useApp } from "@/context/AppContext";
 import { Card } from "@/components/ui/Card";
@@ -12,8 +12,7 @@ import { SVC_TYPES, STATUS_LABELS } from "@/lib/data";
 
 export default function AppraiserTicketPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { db, assetById, reportByTicket } = useApp();
-  const [refresh, setRefresh] = useState(0);
+  const { db, assetById, reportByTicket, refresh } = useApp();
 
   const ticket = db.tickets.find((t) => t.ticket_id === id);
   if (!ticket) return <div className="text-center py-12 text-[var(--muted)]">Ticket not found.</div>;
@@ -26,7 +25,7 @@ export default function AppraiserTicketPage({ params }: { params: Promise<{ id: 
   const isVisit = SVC_TYPES[ticket.service_type].mode === "visit" || ticket.service_type === "repair";
 
   return (
-    <div key={refresh}>
+    <div>
       <Link href="/appraiser" className="inline-flex items-center gap-2 text-[var(--gold)] font-semibold text-[14px] mb-4 cursor-pointer">← Back to My Queue</Link>
       <div className="flex items-start justify-between mb-5 flex-wrap gap-3">
         <div>
@@ -96,7 +95,7 @@ export default function AppraiserTicketPage({ params }: { params: Promise<{ id: 
             state: i < curIdx ? "done" : i === curIdx ? "active" : "pending",
           } as { label: string; state: "done" | "active" | "pending" }))} />
           <hr className="border-none border-t border-[var(--border-color)] my-4" />
-          <TicketWorkPanel ticket={ticket} report={rep} by="tm" onUpdate={() => setRefresh((r) => r + 1)} />
+          <TicketWorkPanel ticket={ticket} report={rep} onUpdate={() => void refresh()} />
         </Card>
       </div>
     </div>
